@@ -1,23 +1,38 @@
 const express = require('express');
 const cors = require('cors');
+const fetch = require('node-fetch'); // lembra de instalar essa dependência
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors()); // permite acesso do front-end de qualquer lugar
+app.use(cors());
 app.use(express.json());
 
-// produtos mock
-const produtos = require('./produtos.json');
-
 // rota GET /busca?btu=XXXX
-app.get('/busca', (req, res) => {
+app.get('/busca', async (req, res) => {
     const btu = req.query.btu;
     if (!btu) return res.status(400).json({ error: 'Informe o BTU' });
 
-    // filtra produtos que contêm o BTU no título
-    const resultado = produtos.filter(p => p.titulo.includes(btu));
+    const query = encodeURIComponent(`ar condicionado ${btu} BTU`);
+    const urlML = `https://api.mercadolibre.com/sites/MLB/search?q=${query}`;
 
-    res.json({ results: resultado });
+    try {
+        const resposta = await fetch(urlML);
+        const dados = await resposta.json();
+
+        // Retornar apenas o necessário
+        const produtos = dados.results.map(p => ({
+            titulo: p.title,
+            preco: p.price,
+            imagem: p.thumbnail,
+            link: p.permalink
+        }));
+
+        res.json({ results: produtos });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar produtos' });
+    }
 });
 
 app.listen(PORT, () => {
